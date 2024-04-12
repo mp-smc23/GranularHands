@@ -19,7 +19,16 @@ class HandDetection:
       self.cap.set(cv2.CAP_PROP_FPS, 5)
       self.detector = self.init_detector()
 
-      self.starting_position = None
+      self.starting_positions = None
+      self.starting_rotations = None
+      self.starting_distance = None
+
+      self.y_offset_left = 0
+      self.y_offset_right = 0
+      self.left_right_distance = 0
+      self.left_angle = 0
+      self.right_angle = 0
+
 
   def __del__(self) -> str:
      self.cap.release()
@@ -45,36 +54,66 @@ class HandDetection:
         annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
 
         self.read_resetting_position(detection_result)
+        self.calculate_hand_positions(detection_result)
 
         cv2.imshow("Video", cv2.flip(annotated_image, 1) )
 
         if cv2.waitKey(1) & 0xFF == ord('q'): 
           return
 
+  @staticmethod
+  def get_hands_indices(handedness):
+    if handedness[0][0].category_name == "Left":
+      return handedness[0][0].index, 1 - handedness[0][0].index
+    return 1 - handedness[0][0].index, handedness[0][0].index
+
+  @staticmethod
+  def get_angle_of_hand(hand_landmarks):
+    dx = hand_landmarks[0].x - hand_landmarks[9].x
+    dy = hand_landmarks[0].y - hand_landmarks[9].y
+    return np.arctan2(dy, dx)
+
+  # Check if the hand is in the starting position which is two fists
   def read_resetting_position(self, detection_result):
-    # Check if the hand is in the starting position which is two fists
-    hand_landmarks_list = detection_result.hand_landmarks
-    
-    if len(hand_landmarks_list) != 2:
+    hand_landmarks = detection_result.hand_landmarks
+    if len(hand_landmarks) != 2:
       return
     
     handedness = detection_result.handedness
     gestures = detection_result.gestures
 
-    if(gestures[0][0].category_name == RESET_CATEGORY and gestures[1][0].category_name == RESET_CATEGORY):
+    if gestures[0][0].category_name == RESET_CATEGORY and gestures[1][0].category_name == RESET_CATEGORY:
       print("Resetting position detected")
+      left_idx, right_idx = self.get_hands_indices(handedness)
+      self.starting_positions = {"Left":hand_landmarks[left_idx][0],
+                                 "Right":hand_landmarks[right_idx][0]}
 
-      left_idx = handedness[0][0].index if handedness[0][0].category_name == "Left" else handedness[1][0].index
-      right_idx = int(not left_idx)
+      self.starting_rotations = {"Left": self.get_angle_of_hand(hand_landmarks[left_idx]),
+                                 "Right": self.get_angle_of_hand(hand_landmarks[right_idx])}
+      
+      self.starting_distance = np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x)
+      
 
-      # print(str(hand_landmarks_list[0][0]) + str(left_idx))
-      # print(str(hand_landmarks_list[1][0]) + str(right_idx))
-      self.starting_position = (hand_landmarks_list[left_idx][0], hand_landmarks_list[right_idx][0])
-  
-  
-  @staticmethod
-  def calculate_hand_positions(detection_result):
-     pass
+  def calculate_hand_positions(self, detection_result):
+    if self.starting_positions is None or len(detection_result.hand_landmarks) < 2:
+      return
+    
+    left_idx, right_idx = self.get_hands_indices(detection_result.handedness)
+    hand_landmarks = detection_result.hand_landmarks
+
+    self.y_offset_left = np.abs(hand_landmarks[left_idx][0].y - self.starting_positions["Left"].y)
+    self.y_offset_right = np.abs(hand_landmarks[right_idx][0].y - self.starting_positions["Right"].y)
+    self.left_right_distance = np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance # TODO maybe sqrt(x^2+y^2)
+    self.left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
+    self.right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
+
+    # print("=====================================")
+    # print("Y offset left: ", self.y_offset_left)
+    # print("Y offset right: ", self.y_offset_right)
+    # print("Left right distance: ", self.left_right_distance)
+    # print("Left angle: ", self.left_angle)
+    # print("Right angle: ", self.right_angle)
+
 
   @staticmethod
   def draw_landmarks_on_image(rgb_image, detection_result):
