@@ -6,10 +6,9 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from mediapipe.framework.formats import landmark_pb2
 
-MARGIN = 10  # pixels
-FONT_SIZE = 1
+FONT_SIZE = 0.3
 FONT_THICKNESS = 1
-HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
+TEXT_COLOR = (0, 0, 0) # vibrant green
 
 RESET_CATEGORY = "Closed_Fist"
 
@@ -51,12 +50,15 @@ class HandDetection:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
 
         detection_result = self.detector.recognize(mp_image)
-        annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
 
         self.read_resetting_position(detection_result)
         self.calculate_hand_positions(detection_result)
 
-        cv2.imshow("Video", cv2.flip(annotated_image, 1) )
+        annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
+        flipped_video = cv2.flip(annotated_image, 1)
+        flipped_video = self.draw_parameters_on_image(flipped_video)
+
+        cv2.imshow("Video", flipped_video)
 
         if cv2.waitKey(1) & 0xFF == ord('q'): 
           return
@@ -107,13 +109,18 @@ class HandDetection:
     self.left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
     self.right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
 
-    # print("=====================================")
-    # print("Y offset left: ", self.y_offset_left)
-    # print("Y offset right: ", self.y_offset_right)
-    # print("Left right distance: ", self.left_right_distance)
-    # print("Left angle: ", self.left_angle)
-    # print("Right angle: ", self.right_angle)
 
+  def draw_parameters_on_image(self, image):
+    height, width = image.shape[1] // 10, image.shape[0] // 3.5
+    cv2.rectangle(image, (0, 0), (int(width), int(height * 1.2)), (255, 255, 255), -1)
+
+    cv2.putText(image, f"Y offset left: {self.y_offset_left:.2f}", (5, int(height * 0.2)), cv2.FONT_HERSHEY_SIMPLEX, FONT_SIZE, TEXT_COLOR, FONT_THICKNESS)
+    cv2.putText(image, f"Y offset right: {self.y_offset_right:.2f}", (5, int(height * 0.4)), cv2.FONT_HERSHEY_SIMPLEX, FONT_SIZE, TEXT_COLOR, FONT_THICKNESS)
+    cv2.putText(image, f"Left right distance: {self.left_right_distance:.2f}", (5, int(height * 0.6)), cv2.FONT_HERSHEY_SIMPLEX, FONT_SIZE, TEXT_COLOR, FONT_THICKNESS)
+    cv2.putText(image, f"Left angle: {self.left_angle:.2f}", (5, int(height * 0.8)), cv2.FONT_HERSHEY_SIMPLEX, FONT_SIZE, TEXT_COLOR, FONT_THICKNESS)
+    cv2.putText(image, f"Right angle: {self.right_angle:.2f}", (5, height), cv2.FONT_HERSHEY_SIMPLEX, FONT_SIZE, TEXT_COLOR, FONT_THICKNESS)
+
+    return image
 
   @staticmethod
   def draw_landmarks_on_image(rgb_image, detection_result):

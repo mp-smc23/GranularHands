@@ -1,25 +1,6 @@
 import pyo
 import time
 
-
-s = pyo.Server(sr=48000, nchnls=2, buffersize=512, duplex=1).boot() 
-s.start()
-snd = pyo.SndTable("audio/Sunrise.wav")
-env = pyo.HannTable()
-pos = pyo.Phasor(freq=snd.getRate()*.25, mul=snd.getSize())
-dur = pyo.Noise(mul=.001, add=.1)
-g = pyo.Granulator(snd, env, [1, 1.001], pos, dur, 32, mul=.1).out()
-
-try:
-    while True:
-        pass
-except KeyboardInterrupt:
-    print("Interrupted by user")
-    s.stop()
-
-import pyo
-import time
-
 class GranularEffect:
     def __init__(self, audio_file):
         self.s = pyo.Server(sr=48000, nchnls=2, buffersize=512, duplex=1).boot() 
@@ -33,9 +14,10 @@ class GranularEffect:
                                     pos=self.phasor, 
                                     dur=0.1, 
                                     grains=32, 
-                                    basedur=0.1).out()
+                                    basedur=0.1)
 
     def start(self):
+        self.grain.out()
         try:
             while True:
                 pass
