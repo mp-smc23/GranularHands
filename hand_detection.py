@@ -11,6 +11,8 @@ FONT_SIZE = 1
 FONT_THICKNESS = 1
 HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
 
+RESET_CATEGORY = "Closed_Fist"
+
 class HandDetection:
   def __init__(self) -> None:
       self.cap = cv2.VideoCapture(0)
@@ -42,28 +44,34 @@ class HandDetection:
         detection_result = self.detector.recognize(mp_image)
         annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
 
+        self.read_resetting_position(detection_result)
+
         cv2.imshow("Video", cv2.flip(annotated_image, 1) )
 
         if cv2.waitKey(1) & 0xFF == ord('q'): 
           return
 
-  @staticmethod
-  def is_resetting_position(detection_result):
+  def read_resetting_position(self, detection_result):
     # Check if the hand is in the starting position which is two fists
     hand_landmarks_list = detection_result.hand_landmarks
+    
     if len(hand_landmarks_list) != 2:
-      return False
+      return
+    
+    handedness = detection_result.handedness
+    gestures = detection_result.gestures
 
-    # Check if the landmarks for both hands are close to each other
-    hand_landmarks_1 = hand_landmarks_list[0]
-    hand_landmarks_2 = hand_landmarks_list[1]
-    distance_threshold = 0.1  # Adjust this threshold as needed
-    for landmark_1, landmark_2 in zip(hand_landmarks_1, hand_landmarks_2):
-      distance = np.sqrt((landmark_1.x - landmark_2.x)**2 + (landmark_1.y - landmark_2.y)**2)
-      if distance > distance_threshold:
-        return False
+    if(gestures[0][0].category_name == RESET_CATEGORY and gestures[1][0].category_name == RESET_CATEGORY):
+      print("Resetting position detected")
 
-    return True
+      left_idx = handedness[0][0].index if handedness[0][0].category_name == "Left" else handedness[1][0].index
+      right_idx = int(not left_idx)
+
+      # print(str(hand_landmarks_list[0][0]) + str(left_idx))
+      # print(str(hand_landmarks_list[1][0]) + str(right_idx))
+      self.starting_position = (hand_landmarks_list[left_idx][0], hand_landmarks_list[right_idx][0])
+  
+  
   @staticmethod
   def calculate_hand_positions(detection_result):
      pass
