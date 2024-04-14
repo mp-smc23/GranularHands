@@ -15,7 +15,6 @@ RESET_CATEGORY = "Closed_Fist"
 class HandDetection:
   def __init__(self) -> None:
       self.cap = cv2.VideoCapture(0)
-      self.cap.set(cv2.CAP_PROP_FPS, 5)
       self.detector = self.init_detector()
 
       self.starting_positions = None
@@ -46,7 +45,7 @@ class HandDetection:
             self.cap.release()
             cv2.destroyAllWindows()
             return
-
+        
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
 
         detection_result = self.detector.recognize(mp_image)
