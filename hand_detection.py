@@ -74,9 +74,9 @@ class HandDetection:
 
   @staticmethod
   def get_angle_of_hand(hand_landmarks):
-    dx = hand_landmarks[0].x - hand_landmarks[9].x
-    dy = hand_landmarks[0].y - hand_landmarks[9].y
-    return np.arctan2(dy, dx)
+    dx = hand_landmarks[9].x - hand_landmarks[0].x
+    dy = hand_landmarks[9].y - hand_landmarks[0].y
+    return np.arctan2(dx, dy) # shift 90 degrees (so that 0 is pointing up)
 
   # Check if the hand is in the starting position which is two fists
   def read_resetting_position(self, detection_result):
@@ -106,12 +106,14 @@ class HandDetection:
     left_idx, right_idx = self.get_hands_indices(detection_result.handedness)
     hand_landmarks = detection_result.hand_landmarks
 
+    # calculate the new values
     new_y_offset_left = np.abs(hand_landmarks[left_idx][0].y - self.starting_positions["Left"].y)
     new_y_offset_right = np.abs(hand_landmarks[right_idx][0].y - self.starting_positions["Right"].y)
     new_left_right_distance = np.abs(np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance)
-    new_left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
-    new_right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
+    new_left_angle = self.get_angle_of_hand(hand_landmarks[left_idx])# - self.starting_rotations["Left"]
+    new_right_angle = self.get_angle_of_hand(hand_landmarks[right_idx])# - self.starting_rotations["Right"]
 
+    # apply low pass filter to smooth the values
     self.y_offset_left = new_y_offset_left * 0.5 + self.y_offset_left * 0.5
     self.y_offset_right = new_y_offset_right * 0.5 + self.y_offset_right * 0.5
     self.left_right_distance = new_left_right_distance * 0.5 + self.left_right_distance * 0.5
