@@ -106,11 +106,17 @@ class HandDetection:
     left_idx, right_idx = self.get_hands_indices(detection_result.handedness)
     hand_landmarks = detection_result.hand_landmarks
 
-    self.y_offset_left = np.abs(hand_landmarks[left_idx][0].y - self.starting_positions["Left"].y)
-    self.y_offset_right = np.abs(hand_landmarks[right_idx][0].y - self.starting_positions["Right"].y)
-    self.left_right_distance = np.abs(np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance) # TODO maybe sqrt(x^2+y^2)
-    self.left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
-    self.right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
+    new_y_offset_left = np.abs(hand_landmarks[left_idx][0].y - self.starting_positions["Left"].y)
+    new_y_offset_right = np.abs(hand_landmarks[right_idx][0].y - self.starting_positions["Right"].y)
+    new_left_right_distance = np.abs(np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance)
+    new_left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
+    new_right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
+
+    self.y_offset_left = new_y_offset_left * 0.5 + self.y_offset_left * 0.5
+    self.y_offset_right = new_y_offset_right * 0.5 + self.y_offset_right * 0.5
+    self.left_right_distance = new_left_right_distance * 0.5 + self.left_right_distance * 0.5
+    self.left_angle = new_left_angle * 0.5 + self.left_angle * 0.5
+    self.right_angle = new_right_angle * 0.5 + self.right_angle * 0.5
 
   def send_parameters_osc(self):
     self.client.send_message("/y_offset_left", self.y_offset_left)
