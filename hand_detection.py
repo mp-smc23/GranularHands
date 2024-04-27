@@ -5,6 +5,7 @@ import numpy as np
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from mediapipe.framework.formats import landmark_pb2
+from pythonosc import udp_client
 
 FONT_SIZE = 0.3
 FONT_THICKNESS = 1
@@ -13,7 +14,7 @@ TEXT_COLOR = (0, 0, 0) # vibrant green
 RESET_CATEGORY = "Closed_Fist"
 
 class HandDetection:
-  def __init__(self) -> None:
+  def __init__(self, ip, port) -> None:
       self.cap = cv2.VideoCapture(0)
       self.detector = self.init_detector()
 
@@ -26,6 +27,8 @@ class HandDetection:
       self.left_right_distance = 0
       self.left_angle = 0
       self.right_angle = 0
+
+      self.client = udp_client.SimpleUDPClient(ip, port)
 
 
   def __del__(self) -> str:
@@ -52,6 +55,7 @@ class HandDetection:
 
         self.read_resetting_position(detection_result)
         self.calculate_hand_positions(detection_result)
+        self.send_parameters_osc()
 
         annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
         flipped_video = cv2.flip(annotated_image, 1)
@@ -104,10 +108,16 @@ class HandDetection:
 
     self.y_offset_left = np.abs(hand_landmarks[left_idx][0].y - self.starting_positions["Left"].y)
     self.y_offset_right = np.abs(hand_landmarks[right_idx][0].y - self.starting_positions["Right"].y)
-    self.left_right_distance = np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance # TODO maybe sqrt(x^2+y^2)
+    self.left_right_distance = np.abs(np.abs(hand_landmarks[left_idx][0].x - hand_landmarks[right_idx][0].x) - self.starting_distance) # TODO maybe sqrt(x^2+y^2)
     self.left_angle = self.get_angle_of_hand(hand_landmarks[left_idx]) - self.starting_rotations["Left"]
     self.right_angle = self.get_angle_of_hand(hand_landmarks[right_idx]) - self.starting_rotations["Right"]
 
+  def send_parameters_osc(self):
+    self.client.send_message("/y_offset_left", self.y_offset_left)
+    self.client.send_message("/y_offset_right", self.y_offset_right)
+    self.client.send_message("/left_right_distance", self.left_right_distance)
+    self.client.send_message("/left_angle", self.left_angle)
+    self.client.send_message("/right_angle", self.right_angle)
 
   def draw_parameters_on_image(self, image):
     height, width = image.shape[1] // 10, image.shape[0] // 3.5
