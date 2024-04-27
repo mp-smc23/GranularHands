@@ -9,7 +9,7 @@ from pythonosc import udp_client
 
 FONT_SIZE = 0.3
 FONT_THICKNESS = 1
-TEXT_COLOR = (0, 0, 0) # vibrant green
+TEXT_COLOR = (0, 0, 0) 
 
 RESET_CATEGORY = "Closed_Fist"
 
