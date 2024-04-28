@@ -74,8 +74,8 @@ class HandDetection:
 
   @staticmethod
   def get_angle_of_hand(hand_landmarks):
-    dx = hand_landmarks[9].x - hand_landmarks[0].x
-    dy = hand_landmarks[9].y - hand_landmarks[0].y
+    dx = hand_landmarks[0].x - hand_landmarks[17].x
+    dy = hand_landmarks[0].y - hand_landmarks[17].y
     return np.arctan2(dx, dy) # shift 90 degrees (so that 0 is pointing up)
 
   # Check if the hand is in the starting position which is two fists
