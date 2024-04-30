@@ -13,10 +13,13 @@ TEXT_COLOR = (0, 0, 0)
 
 RESET_CATEGORY = "Closed_Fist"
 
+GestureRecognizer = mp.tasks.vision.GestureRecognizer
+
 class HandDetection:
   def __init__(self, ip, port) -> None:
       self.cap = cv2.VideoCapture(0)
       self.detector = self.init_detector()
+      self.result_video = None
 
       self.starting_positions = None
       self.starting_rotations = None
@@ -30,40 +33,50 @@ class HandDetection:
 
       self.client = udp_client.SimpleUDPClient(ip, port)
 
+  def close_stream(self):
+    self.cap.release()
+    cv2.destroyAllWindows()
 
   def __del__(self) -> str:
-     self.cap.release()
+     self.close_stream()
      pass
+  
+  def process_result(self, result: GestureRecognizer, mp_image : mp.Image, timastamp_ms: int):
+    self.read_resetting_position(result)
+    self.calculate_hand_positions(result)
+    self.send_parameters_osc()
+
+    annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), result)
+    flipped_video = cv2.flip(annotated_image, 1)
+    self.result_video = self.draw_parameters_on_image(flipped_video)
 
   def init_detector(self):
     base_options =  python.BaseOptions(model_asset_path='model/gesture_recognizer.task')
-    options = vision.GestureRecognizerOptions(base_options=base_options, num_hands=2)
+    options = vision.GestureRecognizerOptions(base_options=base_options, 
+                                              running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM, 
+                                              num_hands=2,
+                                              result_callback=self.process_result)
     return vision.GestureRecognizer.create_from_options(options)
 
   def run(self):
+    timestamp = 0
     while True: 
         ret, frame = self.cap.read() 
 
         if not ret: 
-            self.cap.release()
-            cv2.destroyAllWindows()
+            self.close_stream()
             return
         
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-
-        detection_result = self.detector.recognize(mp_image)
-
-        self.read_resetting_position(detection_result)
-        self.calculate_hand_positions(detection_result)
-        self.send_parameters_osc()
-
-        annotated_image = self.draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
-        flipped_video = cv2.flip(annotated_image, 1)
-        flipped_video = self.draw_parameters_on_image(flipped_video)
-
-        cv2.imshow("Video", flipped_video)
+        timestamp += 1
+        self.detector.recognize_async(mp_image, timestamp)
+        
+        if self.result_video is not None:
+          cv2.imshow("Hand Detection", self.result_video)
 
         if cv2.waitKey(1) & 0xFF == ord('q'): 
+          print("Closing Camera Stream")
+          self.close_stream()
           return
 
   @staticmethod
